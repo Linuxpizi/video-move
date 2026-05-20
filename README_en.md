@@ -1,23 +1,14 @@
-# Video Mover: An Automated Workflow for Video Fetching, Deduplication, and Publishing
+# Video Move: An Automated Workflow for Video Fetching, Deduplication, and Publishing
 
 [简体中文](./README.md) | [English](./README_en.md)
 
-[![GitHub stars](https://img.shields.io/github/stars/toki-plus/video-mover?style=social)](https://github.com/toki-plus/video-mover/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/toki-plus/video-mover?style=social)](https://github.com/toki-plus/video-mover/network/members)
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/toki-plus/video-mover/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/toki-plus/video-mover?style=social)](https://github.com/Linuxpizi/video-move/stargazers)
+[![GitHub forks](https://im.shields.io/github/forks/toki-plus/video-mover?style=social)](https://github.com/Linuxpizi/video-move/network/members)
+[![MIT License](https://imgshields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Linuxpizi/video-move/pulls)
 
-**Video Mover is a powerful, fully automated content creation pipeline tool designed for unattended operation, from monitoring and downloading source videos to deep reprocessing and auto-publishing across multiple platforms.**
 
-This project is built for teams and individuals who require large-scale, high-efficiency video content distribution and reprocessing. It integrates complex video processing flows into a complete, modular automation solution.
-
-<p align="center">
-  <a href="https://www.bilibili.com/video/BV1txQeYyEEz" target="_blank">
-    <img src="./images/cover_demo.png" alt="Click to watch the demo video on Bilibili" width="800"/>
-  </a>
-  <br>
-  <em>(Click the cover to watch the HD demo video on Bilibili)</em>
-</p>
+Tis project is built for teams and individuals who require large-scale, high-efficiency video content distribution and reprocessing. It integrates complex video processing flows into a complete, modular automation solution.
 
 ---
 
@@ -37,14 +28,6 @@ This project is built for teams and individuals who require large-scale, high-ef
 -   **🚀 AI-Powered Upload**
     -   **AI Title Generation**: Utilizes Alibaba Cloud's Bailian LLM to analyze video content and automatically generate viral titles and tags.
     -   **Automated Publishing**: Simulates browser actions to log into a WeChat Channels account, automatically fill in all required information, and publish the video.
-
-## 📸 Screenshots
-
-<p align="center">
-  <img src="./images/cover_script.png" alt="Main UI" width="800"/>
-  <br>
-  <em>Script execution demonstration diagram.</em>
-</p>
 
 ## 🚀 Quick Start
 
@@ -68,8 +51,8 @@ Please follow the steps below strictly for environment setup.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/toki-plus/video-mover.git
-    cd video-mover
+    git clone https://github.com/Linuxpizi/video-move.git
+    cd video-move
     ```
 
 2.  **Install dependencies automatically:**
@@ -142,46 +125,13 @@ Please follow the steps below strictly for environment setup.
 
 ---
 
-<p align="center">
-  <strong>For technical inquiries, please connect via:</strong>
-</p>
-<table align="center">
-  <tr>
-    <td align="center">
-      <img src="./images/wechat.png" alt="WeChat QR Code" width="200"/>
-      <br />
-      <sub><b>WeChat</b></sub>
-      <br />
-      <sub>ID: toki-plus (Note: "GitHub Customization")</sub>
-    </td>
-    <td align="center">
-      <img src="./images/gzh.png" alt="Public Account QR Code" width="200"/>
-      <br />
-      <sub><b>Public Account</b></sub>
-      <br />
-      <sub>Scan for tech articles & project updates</sub>
-    </td>
-  </tr>
-</table>
-
-## 📂 My Other Open-Source Projects
-
--   **[Netease Downloader](https://github.com/toki-plus/netease-downloader)**: An elegant, feature-rich desktop application for downloading high-quality and lossless music from Netease Cloud Music, with support for playlists, albums, QR login, and automatic metadata tagging.
--   **[AI-Trader-For-MT4](https://github.com/toki-plus/ai-trader-for-mt4)**: A revolutionary open-source framework that transforms a Large Language Model (LLM) into an autonomous trading agent for the MetaTrader 4 (MT4) platform.
--   **[Auto USPS Tracker](https://github.com/toki-plus/auto-usps-tracker)**: An efficient USPS bulk package tracker for e-commerce sellers, featuring anti-blocking scraping and formatted Excel report generation.
--   **[AI Mixed Cut](https://github.com/toki-plus/ai-mixed-cut)**: A groundbreaking AI content re-creation engine that deconstructs viral videos into a creative library and automatically generates new, original videos using a "Deconstruct-Reconstruct" model.
--   **[AI Video Workflow](https://github.com/toki-plus/ai-video-workflow)**: A fully automated AI-native video generation pipeline, integrating Text-to-Image, Image-to-Video, and Text-to-Music models to create AIGC short videos with one click.
--   **[AI Highlight Clip](https://github.com/toki-plus/ai-highlight-clip)**: An AI-driven tool that automatically discovers, analyzes, and clips "highlight moments" from long-form videos, complete with auto-generated viral titles.
--   **[AI TTV Workflow](https://github.com/toki-plus/ai-ttv-workflow)**: An AI-driven text-to-video tool that automatically converts any script into a short video with voiceover, subtitles, and a cover. Supports AI script extraction, rewriting, and translation.
--   **[AB Video Deduplicator](https://github.com/toki-plus/AB-Video-Deduplicator)**: Fundamentally alters a video's data fingerprint using an innovative "high-frame-rate blending" technique to bypass originality checks on major short-video platforms.
-
 ## 🤝 Contributing
 
 Contributions of any kind are welcome! If you have ideas for new features, have found a bug, or have suggestions for improvements, please:
--   Open an [Issue](https://github.com/toki-plus/video-mover/issues) to start a discussion.
--   Fork the repository and submit a [Pull Request](https://github.com/toki-plus/video-mover/pulls).
+-   Open an [Issue](https://github.com/Linuxpizi/video-move/issues) to start a discussion.
+-   Fork the epository and submit a [Pull Request](https://github.com/Linuxpizi/video-move/pulls).
 
-If you find this project helpful, please consider giving it a ⭐!
+Ifyou find this project helpful, please consider giving it a ⭐!
 
 ## 📜 License
 

@@ -2,22 +2,15 @@
 
 [简体中文](./README.md) | [English](./README_en.md)
 
-[![GitHub stars](https://img.shields.io/github/stars/toki-plus/video-mover?style=social)](https://github.com/toki-plus/video-mover/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/toki-plus/video-mover?style=social)](https://github.com/toki-plus/video-mover/network/members)
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/toki-plus/video-mover/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/toki-plus/video-mover?style=social)](https://github.com/Linuxpizi/video-move/stargazers)
+[![GitHub forks](https://im.shields.io/github/forks/toki-plus/video-mover?style=social)](https://github.com/Linuxpizi/video-move/network/members)
+[![MIT License](https://imgshields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Linuxpizi/video-move/pulls)
 
-**Video Mover 是一款强大的、全自动化的内容创作流水线工具，旨在实现从视频源监控下载、深度二次创作到多平台自动发布的无人值守工作流。**
+**ideo Move 是一款强大的、全自动化的内容创作流水线工具，旨在实现从视频源监控下载、深度二次创作到多平台自动发布的无人值守工作流。**
 
 本项目为需要大规模、高效率进行视频内容分发和二次创作的团队及个人设计，通过模块化的设计，将复杂的视频处理流程集成为一套完整的自动化解决方案。
 
-<p align="center">
-  <a href="https://www.bilibili.com/video/BV1txQeYyEEz" target="_blank">
-    <img src="./images/cover_demo.png" alt="点击观看B站演示视频" width="800"/>
-  </a>
-  <br>
-  <em>(点击封面图跳转到 B 站观看高清演示视频)</em>
-</p>
 
 ---
 
@@ -38,13 +31,6 @@
     -   **AI标题生成**：调用阿里云百炼AI大模型，分析视频内容，自动生成爆款标题和标签。
     -   **自动化发布**：模拟浏览器操作，登录视频号后台，自动填写所有信息并发布视频。
 
-## 📸 软件截图
-
-<p align="center">
-  <img src="./images/cover_script.png" alt="软件主界面" width="800"/>
-  <br>
-  <em>脚本运行展示图。</em>
-</p>
 
 ## 🚀 快速开始
 
@@ -68,120 +54,19 @@
 
 1.  **克隆本仓库：**
     ```bash
-    git clone https://github.com/toki-plus/video-mover.git
-    cd video-mover
+    git clone https://github.com/Linuxpizi/video-move.git
+    cd video-move
     ```
 
-2.  **自动安装依赖：**
-    双击运行项目根目录下的 `setup.bat` 脚本。它会自动安装所有必要的 Python 和 Node.js 依赖。
-
-3.  **⚠️ 重要：手动修改依赖库**
-    由于特定功能需求，部分已安装的Python库需要进行少量代码修改。**这是保证程序正常运行的关键步骤**。请在虚拟环境中找到对应文件并修改：
-
-    -   **文件 1**: `f2/apps/tiktok/handler.py`
-        -   **位置**: 第 `389` 行
-        -   **操作**: 将 `cursor` 强制转换为 `int` 类型。
-        -   **修改前**: `params={"cursor": cursor, ...}`
-        -   **修改后**: `params={"cursor": int(cursor), ...}`
-
-    -   **文件 2**: `f2/utils/utils.py`
-        -   **位置**: 第 `200` 行附近
-        -   **操作**: 修改日期处理逻辑以兼容不同格式。
-            ```python
-            # 将以下代码块:
-            if date_type == "start":
-                date_str = f"{start_date} 00-00-00"
-            elif date_type == "end":
-                date_str = f"{end_date} 23-59-59"
-
-            # 替换为:
-            if len(start_date.split()) == 1:
-                if date_type == "start":
-                    date_str = f"{start_date} 00-00-00"
-                elif date_type == "end":
-                    date_str = f"{end_date} 23-59-59"
-            else:
-                if date_type == "start":
-                    date_str = f"{start_date}"
-                elif date_type == "end":
-                    date_str = f"{end_date}"
-            ```
-        -   **位置**: 第 `690` 行附近
-        -   **操作**: 修改日期字符串解析逻辑。
-            ```python
-            # 将:
-            start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d")
-            end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d") + datetime.timedelta(...)
-
-            # 替换为:
-            if len(start_str.split()) == 1:
-                start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d")
-            else:
-                start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d %H-%M-%S")
-            if len(end_str.split()) == 1:
-                end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d") + datetime.timedelta(days=1, seconds=-1)
-            else:
-                end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d %H-%M-%S")
-            ```
-    -   **文件 3**: `tencent_uploader/main.py`
-        -   **位置**: 第 `191` 行附近
-        -   **操作**: 延长页面等待超时时间。
-        -   **修改前**: `await page.wait_for_url(".../post/list", timeout=1500)`
-        -   **修改后**: `await page.wait_for_url(".../post/list", timeout=10000)`
-
-4.  **配置密钥与Cookie**
-    -   **阿里云百炼 API Key**: 前往阿里云百炼大模型平台申请 API Key，然后打开 `Upload/vx_upload.py` 文件，将你的 `api_key` 填入。
-    -   **TikTok Cookie**: 在浏览器中登录 TikTok 网页版，打开开发者工具(F12)复制 `Cookie` 值，然后打开根目录下的 `my_apps.yaml` 文件替换原有内容。
-    -   **网络代理 (可选)**: 在 `my_apps.yaml` 文件中修改 `Proxy` 配置项。
-
-## 📖 使用指南
-
-1.  双击运行根目录下的 `start.bat` 脚本。
-2.  程序会自动打开浏览器并开始执行任务。请根据提示进行登录等操作。
-3.  在开发者工具中，点击绿色的三角形箭头（通常是 "Resume script execution"）以继续执行自动化流程。
-
 ---
-
-<p align="center">
-  <strong>技术交流，请添加：</strong>
-</p>
-<table align="center">
-  <tr>
-    <td align="center">
-      <img src="./images/wechat.png" alt="微信二维码" width="200"/>
-      <br />
-      <sub><b>个人微信</b></sub>
-      <br />
-      <sub>微信号: toki-plus (请备注“GitHub 定制”)</sub>
-    </td>
-    <td align="center">
-      <img src="./images/gzh.png" alt="公众号二维码" width="200"/>
-      <br />
-      <sub><b>公众号</b></sub>
-      <br />
-      <sub>获取最新技术分享与项目更新</sub>
-    </td>
-  </tr>
-</table>
-
-## 📂 我的其他开源项目
-
--   **[Netease Downloader](https://github.com/toki-plus/netease-downloader)**: 一款优雅、功能丰富的网易云音乐下载器，支持无损/高品质音质、歌单/专辑批量下载、扫码登录和自动写入ID3元数据。
--   **[AI-Trader-For-MT4](https://github.com/toki-plus/ai-trader-for-mt4)**: 革命性开源框架，将大语言模型（LLM）转变为能在MetaTrader 4（MT4）平台上进行自主交易的AI代理。
--   **[Auto USPS Tracker](https://github.com/toki-plus/auto-usps-tracker)**: 专为跨境电商卖家设计的高效USPS批量物流追踪器，支持防屏蔽抓取并生成精美Excel报告。
--   **[AI Mixed Cut](https://github.com/toki-plus/ai-mixed-cut)**: 一款颠覆性的AI内容生产工具，通过“解构-重构”模式将爆款视频解构成创作素材库，并全自动生成全新原创视频。
--   **[AI Video Workflow](https://github.com/toki-plus/ai-video-workflow)**: 全自动AI原生视频生成工作流，集成了文生图、图生视频和文生音乐模型，一键创作AIGC短视频。
--   **[AI Highlight Clip](https://github.com/toki-plus/ai-highlight-clip)**: 一款AI驱动的智能剪辑工具，能够全自动地从长视频中分析、发现并剪辑出多个“高光时刻”短视频，并自动生成爆款标题。
--   **[AI TTV Workflow](https://github.com/toki-plus/ai-ttv-workflow)**: 一款AI驱动的文本转视频工具，能将任意文案自动转化为带有配音、字幕和封面的短视频，支持AI文案提取、二创和翻译。
--   **[AB Video Deduplicator](https://github.com/toki-plus/AB-Video-Deduplicator)**: 通过创新的“高帧率抽帧混合”技术，从根本上重构视频数据指纹，以规避主流短视频平台的原创度检测和查重机制。
 
 ## 🤝 参与贡献
 
 欢迎任何形式的贡献！如果你有新的功能点子、发现了Bug，或者有任何改进建议，请：
--   提交一个 [Issue](https://github.com/toki-plus/video-mover/issues) 进行讨论。
--   Fork 本仓库并提交 [Pull Request](https://github.com/toki-plus/video-mover/pulls)。
+-   提交一个 [Issue](https://github.com/Linuxpizi/video-move/issues) 进行讨论。
+-   Fork 本仓库提交 [Pull Request](https://github.com/Linuxpizi/video-move/pulls)。
 
-如果这个项目对你有帮助，请不吝点亮一颗 ⭐！
+如果个项目对你有帮助，请不吝点亮一颗 ⭐！
 
 ## 📜 开源协议
 
