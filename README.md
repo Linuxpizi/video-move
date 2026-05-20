@@ -1,9 +1,9 @@
-# Video Mover: 全自动视频搬运、去重与发布工作流
+# Video Move: 全自动视频搬运、去重与发布工作流
 
 [简体中文](./README.md) | [English](./README_en.md)
 
-[![GitHub stars](https://img.shields.io/github/stars/toki-plus/video-mover?style=social)](https://github.com/Linuxpizi/video-move/stargazers)
-[![GitHub forks](https://im.shields.io/github/forks/toki-plus/video-mover?style=social)](https://github.com/Linuxpizi/video-move/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/Linuxpizi/video-move?style=social)](https://github.com/Linuxpizi/video-move/stargazers)
+[![GitHub forks](https://im.shields.io/github/forks/Linuxpizi/video-move?style=social)](https://github.com/Linuxpizi/video-move/network/members)
 [![MIT License](https://imgshields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Linuxpizi/video-move/pulls)
 
