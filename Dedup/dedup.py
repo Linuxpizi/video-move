@@ -75,7 +75,7 @@ class VideoConfig:
         )
 
         # 高清处理
-        self.enable_hd: bool = True  # 是否启用高清输出
+        self.enable_hd: bool = False  # 是否启用高清输出
         self.hd_target: str = "4k"  # 可选值: auto, 720p, 1080p, 4k
         self.output_width: int = 0  # 强制输出宽度，0 表示自动
         self.output_height: int = 0  # 强制输出高度，0 表示自动
@@ -116,7 +116,7 @@ class VideoConfig:
 
         # 视频镜像与旋转
         self.flip_horizontal: bool = False  # 是否启用水平镜像
-        self.rotation_angle: int = 0  # 旋转角度（度），建议值 -3 到 3。
+        self.rotation_angle: int = -6  # 旋转角度（度），建议值 -3 到 3。
 
         # 视频裁剪
         self.crop_percentage: float = (
