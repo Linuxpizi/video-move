@@ -1,18 +1,15 @@
 ﻿import os
 import re
-import math
 import cv2
 import ffmpeg
-import opencc
 import tempfile
 import random
 import subprocess
 import logging
 import numpy as np
 import pysrt
-import whisper
 import argparse
-from typing import List, Tuple, Generator, Optional
+from typing import List, Tuple, Generator
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 from concurrent.futures import ThreadPoolExecutor
@@ -528,13 +525,23 @@ class AudioHandler:
                 logging.warning("未检测到非静音片段，返回原始音频")
                 return audio_path
             processed_audio = AudioSegment.silent(duration=0)  # 初始化空音频
-            for chunk in chunks:
-                processed_audio += chunk  # 直接拼接所有非静音片段
+            for idx, chunk in enumerate(chunks):
+                if idx == 0:
+                    processed_audio = chunk
+                else:
+                    # 采用短淡入淡出避免无缝拼接时出现点击噪音
+                    processed_audio = processed_audio.append(chunk, crossfade=10)
                 if config.silence_retention_ratio > 0:  # 可选：在片段间添加少量静音
                     silence_duration = int(
                         config.silent_duration * config.silence_retention_ratio
                     )
-                    processed_audio += AudioSegment.silent(duration=silence_duration)
+                    if silence_duration > 0:
+                        processed_audio += AudioSegment.silent(
+                            duration=silence_duration
+                        )
+            processed_audio = processed_audio.set_frame_rate(audio.frame_rate)
+            processed_audio = processed_audio.set_channels(audio.channels)
+            processed_audio = processed_audio.set_sample_width(audio.sample_width)
             output_path = tempfile.mktemp(suffix=".wav")
             processed_audio.export(output_path, format="wav")
             logging.info(f"静音处理完成，输出到 {output_path}")
@@ -542,6 +549,90 @@ class AudioHandler:
         except Exception as e:
             logging.error(f"静音处理失败: {str(e)}")
             raise
+
+    @staticmethod
+    def convert_to_high_quality_wav(input_path: str) -> str:
+        """
+        将音频文件转换为高质量 WAV 格式，输出为 PCM 16-bit、44.1kHz、立体声。
+        """
+        if input_path.lower().endswith(".wav"):
+            return input_path
+
+        output_path = tempfile.mktemp(suffix=".wav")
+        ffmpeg.input(input_path).output(
+            output_path,
+            format="wav",
+            acodec="pcm_s16le",
+            ac=2,
+            ar="44100",
+            channel_layout="stereo",
+        ).run(overwrite_output=True)
+        return output_path
+
+    @staticmethod
+    def denoise_audio(input_wav_path: str) -> str:
+        """
+        Try to denoise an input WAV using ffmpeg filters. Prefer `arnndn`,
+        fall back to `afftdn`. If neither is available, return the original path.
+        """
+        try:
+            import shutil
+
+            ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+            # query available filters
+            proc = subprocess.run(
+                [ffmpeg_bin, "-hide_banner", "-filters"], capture_output=True, text=True
+            )
+            filters_out = proc.stdout + proc.stderr
+            use_arnndn = "arnndn" in filters_out
+            use_afftdn = "afftdn" in filters_out
+
+            if not use_arnndn and not use_afftdn:
+                logging.debug(
+                    "No denoise filters available (arnndn/afftdn). Skipping denoise."
+                )
+                return input_wav_path
+
+            denoised_path = tempfile.mktemp(suffix=".wav")
+
+            def try_filter(fname: str) -> bool:
+                proc = subprocess.run(
+                    [
+                        ffmpeg_bin,
+                        "-y",
+                        "-i",
+                        input_wav_path,
+                        "-af",
+                        fname,
+                        denoised_path,
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+                if proc.returncode == 0:
+                    logging.info(
+                        f"Denoise completed with filter '{fname}', output: {denoised_path}"
+                    )
+                    return True
+                logging.warning(f"Denoise with '{fname}' failed: {proc.stderr}")
+                return False
+
+            # try arnndn first, then afftdn
+            if use_arnndn and try_filter("arnndn"):
+                return denoised_path
+            if use_afftdn and try_filter("afftdn"):
+                return denoised_path
+            # neither succeeded
+            if os.path.exists(denoised_path):
+                try:
+                    os.remove(denoised_path)
+                except Exception:
+                    pass
+            logging.debug("All denoise attempts failed, returning original audio")
+            return input_wav_path
+        except Exception as e:
+            logging.warning(f"Denoise helper failed: {e}")
+            return input_wav_path
 
     @staticmethod
     def mix_bgm(
@@ -560,64 +651,63 @@ class AudioHandler:
             logging.warning("背景音乐路径无效，返回原始音频")
             return original_audio_path
         try:
-            original = AudioSegment.from_file(original_audio_path)
-            bgm = AudioSegment.from_file(bgm_path)
-            # 调整BGM音量：转换为分贝调整，0时静音，1时保持原音量
-            bgm = (
-                bgm + 20 * math.log10(background_music_volume)
-                if background_music_volume > 0
-                else bgm - 60
-            )  # -60dB接近静音
-            mixed = original.overlay(bgm, loop=True)
+            if background_music_volume <= 0:
+                logging.info("背景音乐音量为0，直接使用原始音频")
+                return original_audio_path
+
+            orig = ffmpeg.input(
+                original_audio_path,
+                format="wav",
+                channel_layout="stereo",
+            )
+            bgm_wav_path = AudioHandler.convert_to_high_quality_wav(bgm_path)
+            bgm = ffmpeg.input(
+                bgm_wav_path,
+                format="wav",
+                stream_loop=-1,
+                channel_layout="stereo",
+            )
+            orig = orig.filter("aresample", 44100)
+            bgm = bgm.filter("aresample", 44100)
+            bgm = bgm.filter("volume", background_music_volume)
+            mixed = ffmpeg.filter(
+                [orig, bgm],
+                "amix",
+                inputs=2,
+                dropout_transition=0,
+                duration="shortest",
+                weights=f"1 {background_music_volume}",
+            )
+            mixed = mixed.filter("aresample", 44100)
             mixed_path = tempfile.mktemp(suffix=".wav")
-            mixed.export(mixed_path, format="wav")
-            logging.info(f"背景音乐混合完成，输出到 {mixed_path}")
-            return mixed_path
+            mixed = mixed.output(
+                mixed_path,
+                format="wav",
+                acodec="pcm_s16le",
+                ac=2,
+                ar="44100",
+                channel_layout="stereo",
+            )
+            mixed.run(overwrite_output=True)
+            # attempt denoise on mixed audio (uses arnndn if available, otherwise afftdn)
+            denoised = AudioHandler.denoise_audio(mixed_path)
+            # cleanup intermediate files
+            if denoised != mixed_path and os.path.exists(mixed_path):
+                try:
+                    os.remove(mixed_path)
+                except Exception:
+                    pass
+            if bgm_wav_path != bgm_path and os.path.exists(bgm_wav_path):
+                os.remove(bgm_wav_path)
+            logging.info(f"背景音乐混合完成，输出到 {denoised}")
+            return denoised
         except Exception as e:
             logging.error(f"背景音乐混合失败: {str(e)}")
             raise
 
 
-class SubtitleHandler:
-    """字幕处理类，用于生成和添加字幕"""
-
-    @staticmethod
-    def generate_subtitles(input_path: str, model_name: str = "base") -> str:
-        """使用 Whisper 生成字幕文件，并将繁体中文转换为简体中文"""
-        try:
-            import warnings
-
-            # 抑制 FP16 警告
-            warnings.filterwarnings(
-                "ignore", message="FP16 is not supported on CPU; using FP32 instead"
-            )
-            model = whisper.load_model(model_name)
-            result = model.transcribe(input_path)
-            srt_path = tempfile.NamedTemporaryFile(suffix=".srt", delete=False).name
-            converter = opencc.OpenCC("t2s")  # 繁体转简体
-            with open(srt_path, "w", encoding="utf-8") as f:
-                for i, segment in enumerate(result["segments"]):
-                    start = segment["start"]
-                    end = segment["end"]
-                    text = converter.convert(segment["text"].strip())  # 转换为简体中文
-                    f.write(f"{i+1}\n")
-                    f.write(
-                        f"{SubtitleHandler.format_time(start)} --> {SubtitleHandler.format_time(end)}\n"
-                    )
-                    f.write(f"{text}\n\n")
-            logging.debug(f"字幕文件生成: {srt_path}")
-            return srt_path
-        except Exception as e:
-            logging.error(f"字幕生成失败: {str(e)}")
-            raise
-
-    @staticmethod
-    def format_time(seconds: float) -> str:
-        """将秒数格式化为 SRT 时间格式"""
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = seconds % 60
-        return f"{hours:02d}:{minutes:02d}:{secs:06.3f}".replace(".", ",")
+# Subtitle generation via Whisper removed to reduce dependencies.
+# Subtitles will be loaded from the configured `VideoConfig.subtitles_file` if provided.
 
 
 class VideoEffects:
@@ -966,8 +1056,8 @@ class VideoEffects:
                     if config.custom_font_enabled and os.path.exists(config.font_file)
                     else ImageFont.load_default()
                 )
-                subtitle_x_offset = getattr(config, 'subtitle_x_offset', 0)
-                subtitle_y_offset = getattr(config, 'subtitle_y_offset', 0)
+                subtitle_x_offset = getattr(config, "subtitle_x_offset", 0)
+                subtitle_y_offset = getattr(config, "subtitle_y_offset", 0)
                 text = VideoEffects.wrap_text(sub.text, font, int(frame.shape[1] * 0.9))
                 text_bbox = draw.multiline_textbbox((0, 0), text, font=font, spacing=4)
                 text_width = text_bbox[2] - text_bbox[0]
@@ -1079,8 +1169,13 @@ class VideoEffects:
                 return None
 
         if config.top_title:
-            y_top = int(frame.shape[0] * config.top_title_margin / 100) + config.top_title_y_offset
-            overlay = draw_text_block(config.top_title, config.top_title_x_offset, y_top)
+            y_top = (
+                int(frame.shape[0] * config.top_title_margin / 100)
+                + config.top_title_y_offset
+            )
+            overlay = draw_text_block(
+                config.top_title, config.top_title_x_offset, y_top
+            )
             if overlay is not None:
                 pil_img = Image.alpha_composite(
                     pil_img.convert("RGBA"), overlay
@@ -1102,7 +1197,9 @@ class VideoEffects:
                 - int(frame.shape[0] * config.bottom_title_margin / 100)
                 + config.bottom_title_y_offset
             )
-            overlay = draw_text_block(config.bottom_title, config.bottom_title_x_offset, y_bottom)
+            overlay = draw_text_block(
+                config.bottom_title, config.bottom_title_x_offset, y_bottom
+            )
             if overlay is not None:
                 pil_img = Image.alpha_composite(
                     pil_img.convert("RGBA"), overlay
@@ -1424,6 +1521,7 @@ class VideoHandler:
         self.config.validate()
         self.subs = None  # 字幕对象，延迟到 process_video 中加载
         self.batch_size = min(100, max(10, os.cpu_count() * 10))  # 动态调整
+        self.copy_audio = False  # 是否直接复制原始音频
 
         # 预加载图片水印
         self.watermark_img = None
@@ -1495,14 +1593,7 @@ class VideoHandler:
                 self.config.include_subtitles
                 and duration > self.config.subtitles_duration
             ):
-                if self.config.use_whisper:
-                    subtitles_file = SubtitleHandler.generate_subtitles(
-                        input_path, self.config.whisper_model_name
-                    )
-                    temp_files.append(subtitles_file)
-                    logging.info(f"使用 Whisper 生成字幕: {subtitles_file}")
-                else:
-                    subtitles_file = self.config.subtitles_file
+                subtitles_file = self.config.subtitles_file
 
                 if subtitles_file and os.path.exists(subtitles_file):
                     self.subs = pysrt.open(subtitles_file)
@@ -1517,28 +1608,40 @@ class VideoHandler:
                 self.subs = None
 
             # 处理音频
-            audio_path = tempfile.mktemp(suffix=".wav")
-            temp_files.append(audio_path)
-            if audio_stream:
-                audio_stream.output(audio_path, format="wav").run(overwrite_output=True)
-                processed_audio_path = AudioHandler.remove_silence(
-                    audio_path, self.config
-                )
-                temp_files.append(processed_audio_path)
-                if (
-                    self.config.include_background_music
-                    and self.config.background_music_file
-                    and os.path.exists(self.config.background_music_file)
-                ):
-                    mixed_audio_path = AudioHandler.mix_bgm(
-                        processed_audio_path,
-                        self.config.background_music_file,
-                        self.config.background_music_volume,
+            if self.config.enable_silence_check or self.config.include_background_music:
+                audio_path = tempfile.mktemp(suffix=".wav")
+                temp_files.append(audio_path)
+                if audio_stream:
+                    audio_stream.output(
+                        audio_path,
+                        format="wav",
+                        acodec="pcm_s16le",
+                        ac=2,
+                        ar="44100",
+                        channel_layout="stereo",
+                    ).run(overwrite_output=True)
+                    processed_audio_path = AudioHandler.remove_silence(
+                        audio_path, self.config
                     )
-                    temp_files.append(mixed_audio_path)
-                    audio_stream = ffmpeg.input(mixed_audio_path)
-                else:
-                    audio_stream = ffmpeg.input(processed_audio_path)
+                    temp_files.append(processed_audio_path)
+                    if (
+                        self.config.include_background_music
+                        and self.config.background_music_file
+                        and os.path.exists(self.config.background_music_file)
+                    ):
+                        mixed_audio_path = AudioHandler.mix_bgm(
+                            processed_audio_path,
+                            self.config.background_music_file,
+                            self.config.background_music_volume,
+                        )
+                        temp_files.append(mixed_audio_path)
+                        audio_stream = ffmpeg.input(mixed_audio_path)
+                    else:
+                        audio_stream = ffmpeg.input(processed_audio_path)
+            else:
+                # 直接复制原始音频，避免不必要的重新编码
+                self.copy_audio = True
+                audio_stream = FFmpegHandler.get_audio_stream(input_path)
 
             # 定义帧交换索引映射函数
             def get_original_idx(output_idx, interval, total_frames):
@@ -1820,35 +1923,64 @@ class VideoHandler:
             s=f"{target_width}x{target_height}",
             framerate=fps,
         )
-        process = (
-            video_stream.output(
-                audio_stream,
-                output_path,
-                vcodec="libx264",
-                acodec="aac",
-                preset="fast",
-                crf=23,
-                **{"b:v": "2M"},
-                r=fps,
-                s=f"{target_width}x{target_height}",
+        output_kwargs = {
+            "vcodec": "libx264",
+            "preset": "fast",
+            "crf": 23,
+            **{"b:v": "2M"},
+            "r": fps,
+            "s": f"{target_width}x{target_height}",
+        }
+        if self.copy_audio:
+            output_kwargs["acodec"] = "copy"
+        else:
+            output_kwargs.update(
+                {
+                    "acodec": "aac",
+                    "audio_bitrate": "256k",
+                    "ar": "44100",
+                    "ac": 2,
+                    "channel_layout": "stereo",
+                }
             )
+
+        process = (
+            video_stream.output(audio_stream, output_path, **output_kwargs)
             .overwrite_output()
-            .run_async(pipe_stdin=True)
+            .run_async(pipe_stdin=True, pipe_stderr=True)
         )
-        process.stdin.write(first_frame.tobytes())
-        for frame in frame_generator:
-            if frame.shape[1] != target_width or frame.shape[0] != target_height:
-                interp = (
-                    cv2.INTER_CUBIC
-                    if target_width > frame.shape[1] or target_height > frame.shape[0]
-                    else cv2.INTER_AREA
+
+        try:
+            process.stdin.write(first_frame.tobytes())
+            for frame in frame_generator:
+                if frame.shape[1] != target_width or frame.shape[0] != target_height:
+                    interp = (
+                        cv2.INTER_CUBIC
+                        if target_width > frame.shape[1]
+                        or target_height > frame.shape[0]
+                        else cv2.INTER_AREA
+                    )
+                    frame = cv2.resize(
+                        frame, (target_width, target_height), interpolation=interp
+                    )
+                process.stdin.write(frame.tobytes())
+        except BrokenPipeError:
+            logging.error(
+                "FFmpeg 进程提前结束，可能是音频/视频参数不匹配导致。读取 stderr 以获得详细原因。"
+            )
+        finally:
+            try:
+                process.stdin.close()
+            except Exception:
+                pass
+            stderr = (
+                process.stderr.read().decode(errors="replace") if process.stderr else ""
+            )
+            return_code = process.wait()
+            if return_code != 0:
+                raise RuntimeError(
+                    f"FFmpeg 写入失败，退出码={return_code}，stderr={stderr}"
                 )
-                frame = cv2.resize(
-                    frame, (target_width, target_height), interpolation=interp
-                )
-            process.stdin.write(frame.tobytes())
-        process.stdin.close()
-        process.wait()
         logging.info(f"视频处理完成，输出到 {output_path}")
 
 
